@@ -1,0 +1,5 @@
+namespace: "ws"
+image:
+  name: "3.7.100.88:5000/xlr8s/wsserver"
+  version: "latest"
+  pullPolicy: "Always"

@@ -19,7 +19,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var addr = flag.String("addr", "localhost:8080", "http service address")
+var addr = flag.String("addr", "3.7.100.88:7000", "http service address")
 var interrupt = make(chan os.Signal, 1)
 
 func main() {

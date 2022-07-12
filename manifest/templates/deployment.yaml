@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "ws-api-server-v2"
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: "ws-api-server-v2" 
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 7000
+      targetPort: 7000
+      # protocol: TCP
+      # name: http
+  selector:
+    app: "ws-api-server-v2"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "ws-api-server-v2"
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: "ws-api-server-v2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "ws-api-server-v2"
+  template:
+    metadata:
+      labels:
+        app: "ws-api-server-v2"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: "wsserver"
+          image: "{{ .Values.image.name }}:{{ .Values.image.version }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          command: ["./app"]
+          ports:
+            - name: http
+              containerPort: 7000
+              # protocol: TCP
+
+  

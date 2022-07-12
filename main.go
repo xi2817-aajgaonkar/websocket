@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build ignore
-// +build ignore
-
 package main
 
 import (
@@ -20,7 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var addr = flag.String("addr", "localhost:8080", "http service address")
+var addr = flag.String("addr", ":7000", "http service address")
 var upgrader = websocket.Upgrader{} // use default options
 var interrupt = make(chan os.Signal, 1)
 
