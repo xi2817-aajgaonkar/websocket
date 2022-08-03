@@ -19,7 +19,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var addr = flag.String("addr", "3.7.100.88:7000", "http service address")
+var addr = flag.String("addr", "localhost:7000", "http service address")
 var interrupt = make(chan os.Signal, 1)
 
 func main() {
@@ -51,7 +51,7 @@ func main() {
 		}
 	}()
 
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(time.Second * 10)
 	defer ticker.Stop()
 
 	for {
@@ -59,11 +59,12 @@ func main() {
 		case <-done:
 			return
 		case <-ticker.C:
-			final := map[string]interface{}{"operation": "echo", "message": "atharva"}
+			final := map[string]interface{}{"action": "join", "name": "atharva", "reqId": "thisisreqID123"}
 			out, err := json.Marshal(final)
 			if err != nil {
 				panic(err)
 			}
+			fmt.Println("Writing data")
 			err = c.WriteMessage(websocket.TextMessage, []byte(out))
 			if err != nil {
 				log.Println("write:", err)
