@@ -61,8 +61,10 @@ func main() {
 		case <-done:
 			return
 		case <-ticker.C:
-			payload := map[string]interface{}{"to": "atharva", "text": "Hello World"}
+			// payload := map[string]interface{}{"name": "atharva"}
+			payload := map[string]interface{}{"to": "atharva", "text": "hello"}
 			final := map[string]interface{}{"action": "message", "payload": payload, "reqId": "thisisreqID123"}
+			// final := map[string]interface{}{"action": "join", "payload": payload, "reqId": "thisisreqID123"}
 			out, err := json.Marshal(final)
 			if err != nil {
 				panic(err)
