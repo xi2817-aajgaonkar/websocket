@@ -10,13 +10,12 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"github.com/gorilla/websocket"
 	"log"
 	"net/url"
 	"os"
 	"os/signal"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 var addr = flag.String("addr", "localhost:7000", "http service address")
@@ -44,14 +43,17 @@ func main() {
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					log.Printf("error: %v", err)
+				}
 				log.Println("read:", err)
-				return
+				break
 			}
 			log.Printf("recv: %s", message)
 		}
 	}()
 
-	ticker := time.NewTicker(time.Second * 10)
+	ticker := time.NewTicker(time.Second * 5)
 	defer ticker.Stop()
 
 	for {
@@ -59,12 +61,13 @@ func main() {
 		case <-done:
 			return
 		case <-ticker.C:
-			final := map[string]interface{}{"action": "join", "name": "atharva", "reqId": "thisisreqID123"}
+			payload := map[string]interface{}{"to": "atharva", "text": "Hello World"}
+			final := map[string]interface{}{"action": "message", "payload": payload, "reqId": "thisisreqID123"}
 			out, err := json.Marshal(final)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println("Writing data")
+			log.Println("Writing socket")
 			err = c.WriteMessage(websocket.TextMessage, []byte(out))
 			if err != nil {
 				log.Println("write:", err)

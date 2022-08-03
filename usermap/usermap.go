@@ -1,6 +1,10 @@
 package usermap
 
-import "github.com/gorilla/websocket"
+import (
+	"fmt"
+
+	"github.com/gorilla/websocket"
+)
 
 type UserMap struct {
 	userMap map[string]*websocket.Conn
@@ -16,10 +20,9 @@ func (m *UserMap) IsUserPresent(userName string) bool {
 }
 
 // AddUser adds or deletes user map
-func (m *UserMap) AddUser(userChan chan *User) {
-	for u := range userChan {
-		m.userMap[u.Name] = u.Conn
-	}
+func (m *UserMap) AddUser(u *User) {
+	fmt.Println("INside user channel")
+	m.userMap[u.Name] = u.Conn
 }
 
 // DeleteUser deletes the user by connection

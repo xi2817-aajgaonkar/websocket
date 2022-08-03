@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -99,6 +100,7 @@ func HandleMessageAction(req *Request, u *usermap.UserMap, c *websocket.Conn) er
 
 func HandleJoinAction(req *Request, userChannel chan *usermap.User, u *usermap.UserMap, c *websocket.Conn) error {
 	users := u.GetUsers()
+	fmt.Println(req)
 	username := req.Payload["name"].(string)
 
 	// check if user is not present already
@@ -124,7 +126,7 @@ func HandleJoinAction(req *Request, userChannel chan *usermap.User, u *usermap.U
 	users = append(users, username)
 
 	// add user to map
-	userChannel <- &usermap.User{Name: username, Conn: c, Operation: usermap.ADD}
+	u.AddUser(&usermap.User{Name: username, Conn: c, Operation: usermap.ADD})
 	out, err := json.Marshal(Response{
 		Action: req.Action,
 		ReqID:  req.ReqID,
@@ -140,5 +142,6 @@ func HandleJoinAction(req *Request, userChannel chan *usermap.User, u *usermap.U
 	if err = c.WriteMessage(websocket.TextMessage, out); err != nil {
 		return err
 	}
+	fmt.Println("Finished Join")
 	return nil
 }

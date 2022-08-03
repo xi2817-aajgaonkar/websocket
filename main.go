@@ -23,6 +23,7 @@ func wsHandlers(u *usermap.UserMap, userChannel chan *usermap.User) http.Handler
 		fmt.Println("Start handlers")
 		// upgrade connection to websocket
 		var upgrader = websocket.Upgrader{}
+
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Print("upgrade:", err)
@@ -30,31 +31,37 @@ func wsHandlers(u *usermap.UserMap, userChannel chan *usermap.User) http.Handler
 		}
 		// close connection and delete chanel
 		defer func() {
+			fmt.Println("Deleting User", u.GetUsers())
 			c.Close()
 			u.DeleteUser(c)
 		}()
 
-		req := &handler.Request{}
-		err = c.ReadJSON(req)
-		if err != nil {
-			log.Println("read:", err)
-		}
-
-		switch req.Action {
-		case handler.JOIN_ACTION:
-			if err := handler.HandleJoinAction(req, userChannel, u, c); err != nil {
-				log.Println("Error in JOIN ACTION", err)
-			}
-		//write users in response to this request
-		case handler.USERS_ACTION:
-			if err := handler.HandleUserAction(req, u, c); err != nil {
-				log.Println("Error in USER ACTION", err)
+		for {
+			req := &handler.Request{}
+			err = c.ReadJSON(req)
+			if err != nil {
+				log.Println("read:", err)
 			}
 
-		case handler.MESSAGE_ACTION:
-			// get user from map and send data to that connection
-			if err := handler.HandleMessageAction(req, u, c); err != nil {
-				log.Println("Error in Message ACTION ", err)
+			switch req.Action {
+			case handler.JOIN_ACTION:
+				fmt.Println("inside join")
+				if err := handler.HandleJoinAction(req, userChannel, u, c); err != nil {
+					log.Println("Error in JOIN ACTION", err)
+				}
+			//write users in response to this request
+			case handler.USERS_ACTION:
+				fmt.Println("inside user")
+				if err := handler.HandleUserAction(req, u, c); err != nil {
+					log.Println("Error in USER ACTION", err)
+				}
+
+			case handler.MESSAGE_ACTION:
+				fmt.Println("inside message")
+				// get user from map and send data to that connection
+				if err := handler.HandleMessageAction(req, u, c); err != nil {
+					log.Println("Error in Message ACTION ", err)
+				}
 			}
 		}
 	}
@@ -67,7 +74,6 @@ func main() {
 	flag.Parse()
 	log.SetFlags(0)
 
-	go u.AddUser(userChannel)
 	http.HandleFunc("/ws", wsHandlers(u, userChannel))
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
