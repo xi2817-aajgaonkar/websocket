@@ -62,10 +62,10 @@ func HandleMessageAction(req *Request, u *usermap.UserMap, c *websocket.Conn) er
 		return errors.New("error: invalid recipent connection")
 	}
 
-	senderName := u.GetUserByConnection(c)
-	if senderName == "" {
-		return errors.New("error: invalid sender")
-	}
+	// senderName := u.GetUserByConnection(c)
+	// if senderName == "" {
+	// 	return errors.New("error: invalid sender")
+	// }
 
 	// send data to recipient
 	jsonMsg, err := json.Marshal(Response{
