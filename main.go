@@ -9,98 +9,99 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"os"
-	"time"
-
-	"os/signal"
 
 	"github.com/gorilla/websocket"
+	"github.com/xi2817-aajgaonkar/websocket/handler"
+	"github.com/xi2817-aajgaonkar/websocket/usermap"
 )
 
+// use default options
 var addr = flag.String("addr", ":7000", "http service address")
-var upgrader = websocket.Upgrader{} // use default options
-var interrupt = make(chan os.Signal, 1)
 
-type Message struct {
-	Operation string `json:"operation"`
-	Message   string `json:"message"`
+func sendUsersToAllConnections(u *usermap.UserMap) error {
+	out, err := json.Marshal(handler.Response{
+		Action: handler.USERS_ACTION,
+		ReqID:  "downsream-request-id",
+		Payload: map[string]interface{}{
+			"code":    200,
+			"message": "new user added",
+			"users":   u.GetUsers(),
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, r := range u.GetUsers() {
+		conn := u.GetConnection(r)
+		if err = conn.WriteMessage(websocket.TextMessage, out); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func subscribe(w http.ResponseWriter, r *http.Request, c *websocket.Conn) {
-	signal.Notify(interrupt, os.Interrupt)
-
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case t := <-ticker.C:
-			out, err := json.Marshal(Message{Message: t.String(), Operation: "subscribe"})
-			if err != nil {
-				log.Println("write:", err)
-				return
-			}
-			err = c.WriteMessage(websocket.TextMessage, out)
-			if err != nil {
-				log.Println("write:", err)
-				return
-			}
-		case <-interrupt:
-			log.Println("interrupt")
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				log.Println("write close:", err)
-				return
-			}
-			select {
-			case <-time.After(time.Second):
-			}
+func wsHandlers(u *usermap.UserMap, userChannel chan *usermap.User) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// upgrade connection to websocket
+		var upgrader = websocket.Upgrader{}
+		userName := ""
+		c, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Print("upgrade:", err)
 			return
 		}
-	}
-}
+		// close connection and delete chanel
+		defer func() {
+			c.Close()
+			u.DeleteUser(userName)
+			if err := sendUsersToAllConnections(u); err != nil {
+				log.Print("write:", err)
+				return
+			}
+		}()
 
-func echo(w http.ResponseWriter, r *http.Request, c *websocket.Conn) {
-	for {
-		mt, message, err := c.ReadMessage()
-		if err != nil {
-			log.Println("read:", err)
-			break
+		for {
+			req := &handler.Request{}
+			err = c.ReadJSON(req)
+			if err != nil {
+				log.Println("read:", err)
+			}
+
+			switch req.Action {
+			case handler.JOIN_ACTION:
+				if err := handler.HandleJoinAction(req, &userName, userChannel, u, c); err != nil {
+					log.Println("Error in JOIN ACTION", err)
+					return
+				}
+				if err := sendUsersToAllConnections(u); err != nil {
+					log.Print("write:", err)
+					return
+				}
+			//write users in response to this request
+			case handler.USERS_ACTION:
+				if err := handler.HandleUserAction(req, u, c); err != nil {
+					log.Println("Error in USER ACTION", err)
+				}
+
+			case handler.MESSAGE_ACTION:
+				// get user from map and send data to that connection
+				if err := handler.HandleMessageAction(req, userName, u, c); err != nil {
+					log.Println("Error in Message ACTION ", err)
+				}
+			}
 		}
-		log.Printf("recv: %s", message)
-		err = c.WriteMessage(mt, message)
-		if err != nil {
-			log.Println("write:", err)
-			break
-		}
-	}
-}
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Print("upgrade:", err)
-		return
-	}
-	defer c.Close()
-
-	temp := &Message{}
-	err = c.ReadJSON(temp)
-	if err != nil {
-		log.Println("read:", err)
-	}
-
-	if temp.Operation == "echo" {
-		echo(w, r, c)
-	}
-
-	if temp.Operation == "subscribe" {
-		subscribe(w, r, c)
 	}
 }
 
 func main() {
+
+	var userChannel = make(chan *usermap.User)
+	u := usermap.New()
 	flag.Parse()
 	log.SetFlags(0)
-	http.HandleFunc("/ws", handler)
+
+	http.HandleFunc("/ws", wsHandlers(u, userChannel))
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
