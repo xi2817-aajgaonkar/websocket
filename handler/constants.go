@@ -30,6 +30,6 @@ type Response struct {
 
 type Message struct {
 	Recipient string    `json:"to"`
-	Text      string    `json:"text"`
+	Message   string    `json:"message"`
 	Time      time.Time `json:"time"`
 }

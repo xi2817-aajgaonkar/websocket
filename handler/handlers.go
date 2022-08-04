@@ -34,7 +34,7 @@ func HandleMessageAction(req *Request, u *usermap.UserMap, c *websocket.Conn) er
 	msg := &Message{
 		Recipient: req.Payload["to"].(string),
 		Time:      time.Now(),
-		Text:      req.Payload["text"].(string),
+		Message:   req.Payload["message"].(string),
 	}
 
 	// check if user is present; of not then send corresponsing message to sender
@@ -62,10 +62,10 @@ func HandleMessageAction(req *Request, u *usermap.UserMap, c *websocket.Conn) er
 		return errors.New("error: invalid recipent connection")
 	}
 
-	// senderName := u.GetUserByConnection(c)
-	// if senderName == "" {
-	// 	return errors.New("error: invalid sender")
-	// }
+	senderName := u.GetUserByConnection(c)
+	if senderName == "" {
+		return errors.New("error: invalid sender")
+	}
 
 	// send data to recipient
 	jsonMsg, err := json.Marshal(Response{
@@ -73,9 +73,9 @@ func HandleMessageAction(req *Request, u *usermap.UserMap, c *websocket.Conn) er
 		ReqID:  req.ReqID,
 		Payload: map[string]interface{}{
 			"code":    200,
-			"message": msg.Text,
-			"time":    msg.Time.String(),
 			"from":    u.GetUserByConnection(c),
+			"time":    msg.Time.String(),
+			"message": msg.Message,
 		},
 	})
 	if err != nil {
