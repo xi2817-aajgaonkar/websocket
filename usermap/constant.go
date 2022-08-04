@@ -3,15 +3,6 @@ package usermap
 import "github.com/gorilla/websocket"
 
 type User struct {
-	Name      string
-	Conn      *websocket.Conn
-	Operation Operation
+	Name string
+	Conn *websocket.Conn
 }
-
-type Operation string
-
-// Operation
-const (
-	ADD    Operation = "add"
-	DELETE Operation = "delete"
-)

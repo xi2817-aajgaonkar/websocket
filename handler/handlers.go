@@ -30,7 +30,11 @@ func HandleUserAction(req *Request, u *usermap.UserMap, c *websocket.Conn) error
 	return nil
 }
 
-func HandleMessageAction(req *Request, u *usermap.UserMap, c *websocket.Conn) error {
+func HandleMessageAction(req *Request, senderName string, u *usermap.UserMap, c *websocket.Conn) error {
+	if senderName == "" {
+		return errors.New("error: invalid sender")
+	}
+
 	msg := &Message{
 		Recipient: req.Payload["to"].(string),
 		Time:      time.Now(),
@@ -43,7 +47,7 @@ func HandleMessageAction(req *Request, u *usermap.UserMap, c *websocket.Conn) er
 			Action: req.Action,
 			ReqID:  req.ReqID,
 			Payload: map[string]interface{}{
-				"code":    400,
+				"code":    404,
 				"message": "recipient not present",
 			},
 		})
@@ -62,18 +66,13 @@ func HandleMessageAction(req *Request, u *usermap.UserMap, c *websocket.Conn) er
 		return errors.New("error: invalid recipent connection")
 	}
 
-	senderName := u.GetUserByConnection(c)
-	if senderName == "" {
-		return errors.New("error: invalid sender")
-	}
-
 	// send data to recipient
 	jsonMsg, err := json.Marshal(Response{
 		Action: SUBSCRIBE_ACTION,
 		ReqID:  req.ReqID,
 		Payload: map[string]interface{}{
 			"code":    200,
-			"from":    u.GetUserByConnection(c),
+			"from":    senderName,
 			"time":    msg.Time.String(),
 			"message": msg.Message,
 		},
@@ -103,20 +102,18 @@ func HandleMessageAction(req *Request, u *usermap.UserMap, c *websocket.Conn) er
 	return nil
 }
 
-func HandleJoinAction(req *Request, userChannel chan *usermap.User, u *usermap.UserMap, c *websocket.Conn) error {
-	users := u.GetUsers()
-	fmt.Println(req)
-	username := req.Payload["name"].(string)
+func HandleJoinAction(req *Request, userName *string, userChannel chan *usermap.User, u *usermap.UserMap, c *websocket.Conn) error {
+	name := req.Payload["name"].(string)
 
 	// check if user is not present already
-	if u.IsUserPresent(username) {
+	if u.IsUserPresent(name) {
 		out, err := json.Marshal(Response{
 			Action: req.Action,
 			ReqID:  req.ReqID,
 			Payload: map[string]interface{}{
 				"code":    400,
 				"message": "User already exists",
-				"users":   users,
+				"users":   u.GetUsers(),
 			},
 		})
 		if err != nil {
@@ -127,18 +124,17 @@ func HandleJoinAction(req *Request, userChannel chan *usermap.User, u *usermap.U
 		}
 		return errors.New("user Already present")
 	}
+	*userName = name
 	// append username to map for response
-	users = append(users, username)
-
 	// add user to map
-	u.AddUser(&usermap.User{Name: username, Conn: c, Operation: usermap.ADD})
+	u.AddUser(&usermap.User{Name: name, Conn: c})
 	out, err := json.Marshal(Response{
 		Action: req.Action,
 		ReqID:  req.ReqID,
 		Payload: map[string]interface{}{
 			"code":    200,
 			"message": "new user added",
-			"users":   users,
+			"users":   u.GetUsers(),
 		},
 	})
 	if err != nil {
@@ -147,6 +143,5 @@ func HandleJoinAction(req *Request, userChannel chan *usermap.User, u *usermap.U
 	if err = c.WriteMessage(websocket.TextMessage, out); err != nil {
 		return err
 	}
-	fmt.Println("Finished Join")
 	return nil
 }

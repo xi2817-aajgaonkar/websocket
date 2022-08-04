@@ -1,17 +1,18 @@
 package usermap
 
 import (
-	"fmt"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
 type UserMap struct {
 	userMap map[string]*websocket.Conn
+	mutex   sync.RWMutex
 }
 
 func New() *UserMap {
-	return &UserMap{userMap: map[string]*websocket.Conn{}}
+	return &UserMap{userMap: map[string]*websocket.Conn{}, mutex: sync.RWMutex{}}
 }
 
 func (m *UserMap) IsUserPresent(userName string) bool {
@@ -21,30 +22,16 @@ func (m *UserMap) IsUserPresent(userName string) bool {
 
 // AddUser adds or deletes user map
 func (m *UserMap) AddUser(u *User) {
-	fmt.Println("INside user channel")
+	m.mutex.Lock()
 	m.userMap[u.Name] = u.Conn
+	m.mutex.Unlock()
 }
 
 // DeleteUser deletes the user by connection
-func (m *UserMap) DeleteUser(conn *websocket.Conn) {
-	keyToBeDeleted := ""
-	for k, v := range m.userMap {
-		if v == conn {
-			keyToBeDeleted = k
-		}
-	}
-	delete(m.userMap, keyToBeDeleted)
-}
-
-// GetUserByConnection deletes the user by connection
-func (m *UserMap) GetUserByConnection(conn *websocket.Conn) string {
-	user := ""
-	for k, v := range m.userMap {
-		if v == conn {
-			user = k
-		}
-	}
-	return user
+func (m *UserMap) DeleteUser(userName string) {
+	m.mutex.Lock()
+	delete(m.userMap, userName)
+	m.mutex.Unlock()
 }
 
 //GetUsers returns active users

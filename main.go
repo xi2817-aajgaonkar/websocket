@@ -5,8 +5,8 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -18,12 +18,35 @@ import (
 // use default options
 var addr = flag.String("addr", ":7000", "http service address")
 
+func sendUsersToAllConnections(u *usermap.UserMap) error {
+	out, err := json.Marshal(handler.Response{
+		Action: handler.USERS_ACTION,
+		ReqID:  "downsream-request-id",
+		Payload: map[string]interface{}{
+			"code":    200,
+			"message": "new user added",
+			"users":   u.GetUsers(),
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, r := range u.GetUsers() {
+		conn := u.GetConnection(r)
+		if err = conn.WriteMessage(websocket.TextMessage, out); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func wsHandlers(u *usermap.UserMap, userChannel chan *usermap.User) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Start handlers")
 		// upgrade connection to websocket
 		var upgrader = websocket.Upgrader{}
-
+		userName := ""
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Print("upgrade:", err)
@@ -31,9 +54,12 @@ func wsHandlers(u *usermap.UserMap, userChannel chan *usermap.User) http.Handler
 		}
 		// close connection and delete chanel
 		defer func() {
-			fmt.Println("Deleting User", u.GetUsers())
 			c.Close()
-			u.DeleteUser(c)
+			u.DeleteUser(userName)
+			if err := sendUsersToAllConnections(u); err != nil {
+				log.Print("write:", err)
+				return
+			}
 		}()
 
 		for {
@@ -45,21 +71,23 @@ func wsHandlers(u *usermap.UserMap, userChannel chan *usermap.User) http.Handler
 
 			switch req.Action {
 			case handler.JOIN_ACTION:
-				fmt.Println("inside join")
-				if err := handler.HandleJoinAction(req, userChannel, u, c); err != nil {
+				if err := handler.HandleJoinAction(req, &userName, userChannel, u, c); err != nil {
 					log.Println("Error in JOIN ACTION", err)
+					return
+				}
+				if err := sendUsersToAllConnections(u); err != nil {
+					log.Print("write:", err)
+					return
 				}
 			//write users in response to this request
 			case handler.USERS_ACTION:
-				fmt.Println("inside user")
 				if err := handler.HandleUserAction(req, u, c); err != nil {
 					log.Println("Error in USER ACTION", err)
 				}
 
 			case handler.MESSAGE_ACTION:
-				fmt.Println("inside message")
 				// get user from map and send data to that connection
-				if err := handler.HandleMessageAction(req, u, c); err != nil {
+				if err := handler.HandleMessageAction(req, userName, u, c); err != nil {
 					log.Println("Error in Message ACTION ", err)
 				}
 			}

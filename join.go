@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-var addr = flag.String("addr", "localhost:7000", "http service address")
+var addr = flag.String("addr", "3.7.100.88:7000", "http service address")
 var interrupt = make(chan os.Signal, 1)
 
 func main() {
@@ -53,6 +53,20 @@ func main() {
 		}
 	}()
 
+	payload := map[string]interface{}{"name": "atharva"}
+	final := map[string]interface{}{"action": "join", "payload": payload, "reqId": "thisisreqID123"}
+	// final := map[string]interface{}{"action": "join", "payload": payload, "reqId": "thisisreqID123"}
+	out, err := json.Marshal(final)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Writing socket")
+	err = c.WriteMessage(websocket.TextMessage, []byte(out))
+	if err != nil {
+		log.Println("write:", err)
+		return
+	}
+
 	ticker := time.NewTicker(time.Second * 5)
 	defer ticker.Stop()
 
@@ -62,19 +76,7 @@ func main() {
 			return
 		case <-ticker.C:
 			// payload := map[string]interface{}{"name": "atharva"}
-			payload := map[string]interface{}{"to": "atharva", "text": "hello"}
-			final := map[string]interface{}{"action": "message", "payload": payload, "reqId": "thisisreqID123"}
-			// final := map[string]interface{}{"action": "join", "payload": payload, "reqId": "thisisreqID123"}
-			out, err := json.Marshal(final)
-			if err != nil {
-				panic(err)
-			}
-			log.Println("Writing socket")
-			err = c.WriteMessage(websocket.TextMessage, []byte(out))
-			if err != nil {
-				log.Println("write:", err)
-				return
-			}
+
 		case <-interrupt:
 			log.Println("interrupt")
 
