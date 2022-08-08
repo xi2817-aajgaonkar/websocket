@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -102,7 +101,7 @@ func HandleMessageAction(req *Request, senderName string, u *usermap.UserMap, c 
 	return nil
 }
 
-func HandleJoinAction(req *Request, userName *string, userChannel chan *usermap.User, u *usermap.UserMap, c *websocket.Conn) error {
+func HandleJoinAction(req *Request, userName *string, u *usermap.UserMap, c *websocket.Conn) error {
 	name := req.Payload["name"].(string)
 
 	// check if user is not present already
