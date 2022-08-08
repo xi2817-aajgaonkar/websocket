@@ -10,7 +10,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/rs/cors"
 	"github.com/xi2817-aajgaonkar/websocket/handler"
 	"github.com/xi2817-aajgaonkar/websocket/usermap"
 )
@@ -42,10 +44,13 @@ func sendUsersToAllConnections(u *usermap.UserMap) error {
 	return nil
 }
 
-func wsHandlers(u *usermap.UserMap, userChannel chan *usermap.User) http.HandlerFunc {
+func HandleWsHandlers(u *usermap.UserMap) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// upgrade connection to websocket
-		var upgrader = websocket.Upgrader{}
+		var upgrader = websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true
+			},
+		}
 		userName := ""
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -71,7 +76,7 @@ func wsHandlers(u *usermap.UserMap, userChannel chan *usermap.User) http.Handler
 
 			switch req.Action {
 			case handler.JOIN_ACTION:
-				if err := handler.HandleJoinAction(req, &userName, userChannel, u, c); err != nil {
+				if err := handler.HandleJoinAction(req, &userName, u, c); err != nil {
 					log.Println("Error in JOIN ACTION", err)
 					return
 				}
@@ -95,13 +100,27 @@ func wsHandlers(u *usermap.UserMap, userChannel chan *usermap.User) http.Handler
 	}
 }
 
-func main() {
+// CreateCorsObject creates a cors object with the required config
+func createCorsObject() *cors.Cors {
+	return cors.New(cors.Options{
+		AllowCredentials: true,
+		AllowOriginFunc: func(s string) bool {
+			return true
+		},
+		AllowedMethods: []string{"GET", "PUT", "POST", "DELETE"},
+		AllowedHeaders: []string{"Authorization", "Content-Type"},
+		ExposedHeaders: []string{"Authorization", "Content-Type"},
+	})
+}
 
-	var userChannel = make(chan *usermap.User)
+func main() {
 	u := usermap.New()
+	router := mux.NewRouter().StrictSlash(true)
+	router.HandleFunc("/ws", HandleWsHandlers(u))
 	flag.Parse()
 	log.SetFlags(0)
 
-	http.HandleFunc("/ws", wsHandlers(u, userChannel))
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	corsObj := createCorsObject()
+	Handler := corsObj.Handler(router)
+	http.ListenAndServe(":7000", Handler)
 }
